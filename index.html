@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskFlow · Lab IV — Ignacio & Luisa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ══════════════════════════════════════
+       TOKENS DE DISEÑO
+    ══════════════════════════════════════ */
+    :root {
+      --bg:         #0a0b0f;
+      --surface:    #12141a;
+      --surface2:   #1a1d26;
+      --border:     #252836;
+      --border-glow:#3a7bfd44;
+      --text:       #e8eaf0;
+      --text-muted: #6b7080;
+      --accent:     #3a7bfd;
+      --accent-dim: #3a7bfd22;
+      --green:      #22d3a0;
+      --green-dim:  #22d3a018;
+      --amber:      #f5a623;
+      --amber-dim:  #f5a62318;
+      --red:        #ff5c5c;
+      --red-dim:    #ff5c5c18;
+      --radius:     10px;
+      --font-head:  'Syne', sans-serif;
+      --font-mono:  'DM Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Fondo animado ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 80% 10%, #3a7bfd12 0%, transparent 70%),
+        radial-gradient(ellipse 40% 30% at 10% 90%, #22d3a008 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ════════════════════════════════
+       LAYOUT PRINCIPAL
+    ════════════════════════════════ */
+    .shell {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand h1 {
+      font-family: var(--font-head);
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #e8eaf0 30%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .brand p {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .api-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      transition: background .3s;
+    }
+
+    .dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      transition: border-color .2s, transform .2s;
+    }
+
+    .stat-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+    .stat-card .label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stat-card .value {
+      font-family: var(--font-head);
+      font-size: 32px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .stat-card.total   .value { color: var(--accent); }
+    .stat-card.pending .value { color: var(--amber); }
+    .stat-card.done    .value { color: var(--green); }
+    .stat-card.pct     .value { color: var(--text); }
+
+    /* ── Grid principal ── */
+    .grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* ── Panel / tarjeta ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-family: var(--font-head);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .panel-body { padding: 20px; }
+
+    /* ── Formulario ── */
+    .form-group { margin-bottom: 14px; }
+
+    label {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      padding: 10px 14px;
+      transition: border-color .2s, box-shadow .2s;
+      outline: none;
+      resize: none;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    textarea { min-height: 80px; }
+    select option { background: var(--surface2); }
+
+    /* Tags input */
+    .tags-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── Botones ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all .2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      transition: opacity .15s;
+    }
+
+    .btn:active::after { opacity: .08; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      width: 100%;
+    }
+    .btn-primary:hover { background: #5590ff; transform: translateY(-1px); box-shadow: 0 4px 14px #3a7bfd40; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      padding: 6px 12px;
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-danger {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid transparent;
+      font-size: 12px;
+      padding: 6px 12px;
+    }
+    .btn-danger:hover { border-color: var(--red); }
+
+    .btn-success {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid transparent;
+      font-size: 12px;
+      padding: 6px 12px;
+    }
+    .btn-success:hover { border-color: var(--green); }
+
+    /* ── Filtros ── */
+    .filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .filter-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* ── Búsqueda ── */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 16px;
+    }
+    .search-wrap input { padding-left: 36px; }
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* ── Lista de tareas ── */
+    #lista-tareas { display: flex; flex-direction: column; gap: 10px; min-height: 200px; }
+
+    .tarea-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      transition: border-color .2s, transform .2s;
+      animation: fadeIn .25s ease both;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .tarea-item:hover { border-color: var(--border-glow); transform: translateX(2px); }
+    .tarea-item.completada { opacity: .55; }
+    .tarea-item.completada .tarea-titulo { text-decoration: line-through; }
+
+    .check-circle {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .check-circle:hover { border-color: var(--green); }
+    .tarea-item.completada .check-circle {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .tarea-content { flex: 1; min-width: 0; }
+
+    .tarea-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .tarea-titulo {
+      font-family: var(--font-head);
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+
+    .badge-alta   { background: #ff5c5c22; color: var(--red); border: 1px solid #ff5c5c33; }
+    .badge-media  { background: #f5a62322; color: var(--amber); border: 1px solid #f5a62333; }
+    .badge-baja   { background: #22d3a018; color: var(--green); border: 1px solid #22d3a033; }
+
+    .tarea-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tarea-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tarea-tags {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 11px;
+    }
+
+    .tarea-actions { display: flex; gap: 6px; }
+
+    /* ── Estado vacío / carga ── */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-size: 13px; }
+
+    .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 40px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all .25s;
+      pointer-events: none;
+      z-index: 999;
+      max-width: 300px;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    #toast.success { background: #22d3a022; color: var(--green); border: 1px solid var(--green); }
+    #toast.error   { background: #ff5c5c22; color: var(--red);   border: 1px solid var(--red); }
+    #toast.info    { background: #3a7bfd22; color: var(--accent); border: 1px solid var(--accent); }
+
+    /* ── Modal edición ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #0a0b0fcc;
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      width: 460px;
+      max-width: 95vw;
+      animation: fadeIn .2s ease;
+    }
+
+    .modal h2 {
+      font-family: var(--font-head);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .modal-actions .btn-primary { flex: 1; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <h1>TaskFlow</h1>
+      <p>Laboratorio IV · Ignacio Zambrano &amp; Luisa Guerrero · PUCE Ciencia de Datos</p>
+    </div>
+    <div class="api-badge">
+      <div class="dot" id="api-dot"></div>
+      <span id="api-status">Conectando…</span>
+    </div>
+  </header>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-card total">
+      <div class="label">Total</div>
+      <div class="value" id="stat-total">—</div>
+    </div>
+    <div class="stat-card pending">
+      <div class="label">Pendientes</div>
+      <div class="value" id="stat-pending">—</div>
+    </div>
+    <div class="stat-card done">
+      <div class="label">Completadas</div>
+      <div class="value" id="stat-done">—</div>
+    </div>
+    <div class="stat-card pct">
+      <div class="label">Progreso</div>
+      <div class="value" id="stat-pct">—</div>
+    </div>
+  </div>
+
+  <!-- GRID -->
+  <div class="grid">
+
+    <!-- FORMULARIO -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Nueva Tarea</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>Título</label>
+          <input type="text" id="inp-titulo" placeholder="ej. Implementar API REST" maxlength="120" />
+        </div>
+        <div class="form-group">
+          <label>Descripción</label>
+          <textarea id="inp-desc" placeholder="Detalla lo que hay que hacer…" maxlength="500"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Prioridad</label>
+          <select id="inp-prioridad">
+            <option value="baja">🟢 Baja</option>
+            <option value="media" selected>🟡 Media</option>
+            <option value="alta">🔴 Alta</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Etiquetas</label>
+          <input type="text" id="inp-tags" placeholder="backend, api, cloud" />
+          <p class="tags-hint">Separadas por coma</p>
+        </div>
+        <button class="btn btn-primary" onclick="crearTarea()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Crear Tarea
+        </button>
+      </div>
+    </div>
+
+    <!-- LISTA -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Tareas</span>
+        <button class="btn btn-ghost" onclick="cargarTareas()">↻ Refrescar</button>
+      </div>
+      <div class="panel-body">
+
+        <div class="search-wrap">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="inp-buscar" placeholder="Buscar por título o descripción…" oninput="cargarTareas()" />
+        </div>
+
+        <div class="filters">
+          <button class="filter-btn active" data-filtro="todas"      onclick="setFiltro(this, 'todas')">Todas</button>
+          <button class="filter-btn"        data-filtro="pendiente"  onclick="setFiltro(this, 'pendiente')">Pendientes</button>
+          <button class="filter-btn"        data-filtro="completada" onclick="setFiltro(this, 'completada')">Completadas</button>
+          <button class="filter-btn"        data-filtro="alta"       onclick="setFiltro(this, 'alta')">🔴 Alta</button>
+          <button class="filter-btn"        data-filtro="media"      onclick="setFiltro(this, 'media')">🟡 Media</button>
+          <button class="filter-btn"        data-filtro="baja"       onclick="setFiltro(this, 'baja')">🟢 Baja</button>
+        </div>
+
+        <div id="lista-tareas">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+</div><!-- /shell -->
+
+<!-- MODAL EDICIÓN -->
+<div class="modal-overlay" id="modal-overlay" onclick="cerrarModal(event)">
+  <div class="modal">
+    <h2>Editar Tarea</h2>
+    <input type="hidden" id="edit-id" />
+    <div class="form-group">
+      <label>Título</label>
+      <input type="text" id="edit-titulo" maxlength="120" />
+    </div>
+    <div class="form-group">
+      <label>Descripción</label>
+      <textarea id="edit-desc" maxlength="500"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Prioridad</label>
+      <select id="edit-prioridad">
+        <option value="baja">🟢 Baja</option>
+        <option value="media">🟡 Media</option>
+        <option value="alta">🔴 Alta</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Etiquetas</label>
+      <input type="text" id="edit-tags" />
+      <p class="tags-hint">Separadas por coma</p>
+    </div>
+    <div class="form-group">
+      <label>Estado</label>
+      <select id="edit-completada">
+        <option value="false">⏳ Pendiente</option>
+        <option value="true">✅ Completada</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEdicion()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+  // ══════════════════════════════════════════════
+  //  CONFIGURACIÓN
+  // ══════════════════════════════════════════════
+  const API_URL = "http://127.0.0.1:8000";
+
+  let filtroActivo = "todas";
+
+  // ══════════════════════════════════════════════
+  //  UTILIDADES
+  // ══════════════════════════════════════════════
+  function toast(msg, tipo = "info") {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.className = `show ${tipo}`;
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.className = ""; }, 3000);
+  }
+
+  function parseTags(str) {
+    return str.split(",").map(t => t.trim()).filter(Boolean);
+  }
+
+  function badgeHTML(prioridad) {
+    return `<span class="badge badge-${prioridad}">${prioridad}</span>`;
+  }
+
+  function checkSVG(completada) {
+    return completada
+      ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`
+      : "";
+  }
+
+  // ══════════════════════════════════════════════
+  //  CONECTIVIDAD
+  // ══════════════════════════════════════════════
+  async function verificarConexion() {
+    try {
+      await fetch(`${API_URL}/`);
+      document.getElementById("api-dot").className = "dot connected";
+      document.getElementById("api-status").textContent = "API conectada";
+    } catch {
+      document.getElementById("api-dot").className = "dot";
+      document.getElementById("api-status").textContent = "API desconectada";
+    }
+  }
+
+  // ══════════════════════════════════════════════
+  //  ESTADÍSTICAS
+  // ══════════════════════════════════════════════
+  async function actualizarStats() {
+    try {
+      const res = await fetch(`${API_URL}/tareas/estadisticas/resumen`);
+      const d = await res.json();
+      document.getElementById("stat-total").textContent   = d.total;
+      document.getElementById("stat-pending").textContent = d.pendientes;
+      document.getElementById("stat-done").textContent    = d.completadas;
+      document.getElementById("stat-pct").textContent     = `${d.porcentaje_completado}%`;
+    } catch {
+      ["stat-total","stat-pending","stat-done","stat-pct"].forEach(id => {
+        document.getElementById(id).textContent = "—";
+      });
+    }
+  }
+
+  // ══════════════════════════════════════════════
+  //  CARGAR TAREAS
+  // ══════════════════════════════════════════════
+  async function cargarTareas() {
+    const lista = document.getElementById("lista-tareas");
+    lista.innerHTML = '<div class="spinner"></div>';
+
+    const buscar = document.getElementById("inp-buscar").value.trim();
+
+    const params = new URLSearchParams();
+    if (filtroActivo === "pendiente")  params.set("completada", "false");
+    if (filtroActivo === "completada") params.set("completada", "true");
+    if (["alta","media","baja"].includes(filtroActivo)) params.set("prioridad", filtroActivo);
+    if (buscar) params.set("buscar", buscar);
+
+    try {
+      const res = await fetch(`${API_URL}/tareas?${params}`);
+      if (!res.ok) throw new Error();
+      const tareas = await res.json();
+
+      if (tareas.length === 0) {
+        lista.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">📋</div>
+            <p>No hay tareas aquí todavía.<br/>¡Crea una desde el formulario!</p>
+          </div>`;
+        return;
+      }
+
+      lista.innerHTML = "";
+      tareas.forEach(t => {
+        const tags = (t.etiquetas || []).map(e => `<span class="tag">${e}</span>`).join("");
+        const item = document.createElement("div");
+        item.className = `tarea-item${t.completada ? " completada" : ""}`;
+        item.id = `tarea-${t.id}`;
+        item.innerHTML = `
+          <div class="check-circle" onclick="toggleCompletar('${t.id}', ${!t.completada})" title="Marcar como ${t.completada ? 'pendiente' : 'completada'}">
+            ${checkSVG(t.completada)}
+          </div>
+          <div class="tarea-content">
+            <div class="tarea-meta">
+              <span class="tarea-titulo">${t.titulo}</span>
+              ${badgeHTML(t.prioridad)}
+            </div>
+            <div class="tarea-desc">${t.descripcion}</div>
+            <div class="tarea-footer">
+              <div class="tarea-tags">${tags}</div>
+              <div class="tarea-actions">
+                <button class="btn btn-ghost" onclick="abrirModal('${t.id}')">Editar</button>
+                <button class="btn btn-danger" onclick="eliminarTarea('${t.id}')">Eliminar</button>
+              </div>
+            </div>
+          </div>`;
+        lista.appendChild(item);
+      });
+
+    } catch {
+      lista.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">⚠️</div>
+          <p>No se pudo conectar con la API.<br/>Verifica que esté corriendo en el puerto 8000.</p>
+        </div>`;
+    }
+
+    actualizarStats();
+  }
+
+  // ══════════════════════════════════════════════
+  //  CREAR TAREA
+  // ══════════════════════════════════════════════
+  async function crearTarea() {
+    const titulo     = document.getElementById("inp-titulo").value.trim();
+    const descripcion = document.getElementById("inp-desc").value.trim();
+    const prioridad  = document.getElementById("inp-prioridad").value;
+    const etiquetas  = parseTags(document.getElementById("inp-tags").value);
+
+    if (!titulo || !descripcion) {
+      toast("El título y la descripción son obligatorios.", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/tareas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo, descripcion, prioridad, etiquetas }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(JSON.stringify(err.detail));
+      }
+      toast("✓ Tarea creada exitosamente", "success");
+      document.getElementById("inp-titulo").value = "";
+      document.getElementById("inp-desc").value = "";
+      document.getElementById("inp-tags").value = "";
+      cargarTareas();
+    } catch (e) {
+      toast("Error al crear la tarea: " + e.message, "error");
+    }
+  }
+
+  // ══════════════════════════════════════════════
+  //  TOGGLE COMPLETADA
+  // ══════════════════════════════════════════════
+  async function toggleCompletar(id, estado) {
+    try {
+      await fetch(`${API_URL}/tareas/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completada: estado }),
+      });
+      toast(estado ? "✓ Tarea completada" : "↩ Tarea reabierta", "success");
+      cargarTareas();
+    } catch {
+      toast("Error al actualizar la tarea.", "error");
+    }
+  }
+
+  // ══════════════════════════════════════════════
+  //  ELIMINAR TAREA
+  // ══════════════════════════════════════════════
+  async function eliminarTarea(id) {
+    if (!confirm("¿Estás seguro de eliminar esta tarea?")) return;
+    try {
+      const res = await fetch(`${API_URL}/tareas/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast("🗑 Tarea eliminada", "info");
+      cargarTareas();
+    } catch {
+      toast("Error al eliminar la tarea.", "error");
+    }
+  }
+
+  // ══════════════════════════════════════════════
+  //  MODAL EDICIÓN
+  // ══════════════════════════════════════════════
+  async function abrirModal(id) {
+    try {
+      const res = await fetch(`${API_URL}/tareas/${id}`);
+      const t = await res.json();
+      document.getElementById("edit-id").value         = t.id;
+      document.getElementById("edit-titulo").value     = t.titulo;
+      document.getElementById("edit-desc").value       = t.descripcion;
+      document.getElementById("edit-prioridad").value  = t.prioridad;
+      document.getElementById("edit-tags").value       = (t.etiquetas || []).join(", ");
+      document.getElementById("edit-completada").value = String(t.completada);
+      document.getElementById("modal-overlay").className = "modal-overlay open";
+    } catch {
+      toast("Error al cargar la tarea.", "error");
+    }
+  }
+
+  function cerrarModal(event) {
+    if (!event || event.target.id === "modal-overlay") {
+      document.getElementById("modal-overlay").className = "modal-overlay";
+    }
+  }
+
+  async function guardarEdicion() {
+    const id        = document.getElementById("edit-id").value;
+    const titulo    = document.getElementById("edit-titulo").value.trim();
+    const desc      = document.getElementById("edit-desc").value.trim();
+    const prioridad = document.getElementById("edit-prioridad").value;
+    const etiquetas = parseTags(document.getElementById("edit-tags").value);
+    const completada = document.getElementById("edit-completada").value === "true";
+
+    if (!titulo || !desc) {
+      toast("Título y descripción son obligatorios.", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/tareas/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo, descripcion: desc, prioridad, etiquetas, completada }),
+      });
+      if (!res.ok) throw new Error();
+      toast("✓ Tarea actualizada", "success");
+      cerrarModal();
+      cargarTareas();
+    } catch {
+      toast("Error al guardar los cambios.", "error");
+    }
+  }
+
+  // ══════════════════════════════════════════════
+  //  FILTROS
+  // ══════════════════════════════════════════════
+  function setFiltro(btn, filtro) {
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    filtroActivo = filtro;
+    cargarTareas();
+  }
+
+  // ══════════════════════════════════════════════
+  //  INICIO
+  // ══════════════════════════════════════════════
+  verificarConexion();
+  cargarTareas();
+  setInterval(verificarConexion, 10000);
+</script>
+</body>
+</html>
